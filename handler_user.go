@@ -3,13 +3,27 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/zonne13/go-gator/internal/database"
 )
+
+func handlerUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("couldn't fetch users: %w", err)
+	}
+
+	for _, user := range users {
+		userString := fmt.Sprintf("  * %s", user.Name)
+		if user.Name == s.cfg.Username {
+			userString += " (current)"
+		}
+		fmt.Println(userString)
+	}
+	return nil
+}
 
 func handlerLogin(s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
@@ -43,13 +57,12 @@ func handlerRegister(s *state, cmd command) error {
 	}
 	user, err := s.db.CreateUser(context.Background(), userParams)
 	if err != nil {
-		log.Fatalf("could not create user: %v", err)
-		os.Exit(1)
+		fmt.Errorf("could not create user: %w", err)
 	}
 
 	err = s.cfg.SetUser(user.Name)
 	if err != nil {
-		return fmt.Errorf("could not set user: %v", err)
+		return fmt.Errorf("could not set user: %w", err)
 	}
 	fmt.Println("User switched successfully")
 	return nil
