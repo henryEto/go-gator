@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -9,6 +10,77 @@ import (
 	"github.com/google/uuid"
 	"github.com/zonne13/go-gator/internal/database"
 )
+
+func handlerFollowing(s *state, cmd command) error {
+	if len(cmd.Args) != 0 {
+		return fmt.Errorf("no agruments expected: <%d> given", len(cmd.Args))
+	}
+
+	folows, err := s.db.GetFeedFollowsForUser(context.Background(), s.cfg.Username)
+	if err != nil {
+		return err
+	}
+	if len(folows) == 0 {
+		fmt.Printf("%s doesn't follow any feeds yet...", s.cfg.Username)
+		return nil
+	}
+	printFollows(folows)
+	return nil
+}
+
+func printFollows(follows []database.GetFeedFollowsForUserRow) {
+	fmt.Printf("n%s follows %d feed(s):\n", follows[0].UserName, len(follows))
+	for i, follow := range follows {
+		fmt.Printf("  %d. %s\n", i+1, follow.FeedName)
+	}
+}
+
+func handlerFollowFeed(s *state, cmd command) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: %s <url>", cmd.Name)
+	}
+
+	ctx := context.Background()
+
+	feeds, err := s.db.GetFeeds(ctx)
+	if err != nil {
+		return err
+	}
+
+	var feed database.Feed
+	feedExists := false
+	for _, f := range feeds {
+		if f.Url == cmd.Args[0] {
+			feed = f
+			feedExists = true
+			break
+		}
+	}
+	if !feedExists {
+		return errors.New("feed does not exist")
+	}
+
+	user, err := s.db.GetUser(ctx, s.cfg.Username)
+	if err != nil {
+		return err
+	}
+
+	followParams := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	}
+	follow, err := s.db.CreateFeedFollow(ctx, followParams)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s now folows %s!\n", follow.UserName, follow.FeedName)
+
+	return nil
+}
 
 func handlerListFeeds(s *state, cmd command) error {
 	if len(cmd.Args) != 0 {
@@ -32,7 +104,9 @@ func handlerAddFeed(s *state, cmd command) error {
 		return fmt.Errorf("usage: %s <feed_name> <url>", cmd.Name)
 	}
 
-	user, err := s.db.GetUser(context.Background(), s.cfg.Username)
+	ctx := context.Background()
+
+	user, err := s.db.GetUser(ctx, s.cfg.Username)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -45,15 +119,27 @@ func handlerAddFeed(s *state, cmd command) error {
 		Url:       cmd.Args[1],
 		UserID:    user.ID,
 	}
-	feed, err := s.db.CreateRSSFeed(context.Background(), feedParams)
+	feed, err := s.db.CreateRSSFeed(ctx, feedParams)
 	if err != nil {
 		return fmt.Errorf("failed to create feed: %w", err)
 	}
 
 	fmt.Println("Feed created successfully:")
 	printFeed(s, feed)
-	fmt.Println()
 	fmt.Println("=====================================")
+	fmt.Println()
+
+	followParams := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	}
+	_, err = s.db.CreateFeedFollow(ctx, followParams)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -83,4 +169,7 @@ func printFeed(s *state, feed database.Feed) {
 	fmt.Printf("  * URL:           %s\n", feed.Url)
 	fmt.Printf("  * User:          %s\n", user.Name)
 	fmt.Println("")
+}
+
+func printFollow(follow database.FeedFollow) {
 }
