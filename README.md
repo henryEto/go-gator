@@ -15,7 +15,7 @@ To run 'go-gator', you'll need the following installed on your system:
 You can install the 'gator' CLI tool using `go install`:
 
 ```bash
-go install [github.com/henryEto/go-gator@latest](https://github.com/henryEto/go-gator@latest)
+go install github.com/henryEto/go-gator@latest
 ````
 
 This command will download the 'go-gator' source code, compile it, and place the `go-gator` executable in your `$GOPATH/bin` directory (or `$GOBIN` if set), making it available in your system's PATH.
