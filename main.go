@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
 	_ "github.com/lib/pq"
-	"github.com/zonne13/go-gator/internal/config"
-	"github.com/zonne13/go-gator/internal/database"
+	"github.com/henryEto/go-gator/internal/config"
+	"github.com/henryEto/go-gator/internal/database"
 )
 
 func main() {
@@ -42,6 +43,8 @@ func main() {
 	cmds.register("follow", midlewareLoggedIn(handlerFollowFeed))
 	cmds.register("following", midlewareLoggedIn(handlerFollowing))
 	cmds.register("unfollow", midlewareLoggedIn(handlerUnfollow))
+	cmds.register("browse", midlewareLoggedIn(handlerBrowse))
+	cmds.register("help", handlerHelp)
 
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: cli <command> [args...]")
@@ -66,4 +69,30 @@ func midlewareLoggedIn(handler func(s *state, cmd command, user database.User) e
 
 		return handler(s, cmd, user)
 	}
+}
+
+func handlerHelp(s *state, cmd command) error {
+	fmt.Println("Welcome to go-gator! Here are the available commands:")
+	fmt.Println("----------------------------------------------------")
+
+	// Print help for each command. This can be extended with more detailed descriptions
+	// if we add them to the command registration.
+	// For now, we'll list them with their basic usage patterns.
+	fmt.Println("  login <username>    - Log in as an existing user.")
+	fmt.Println("  register <username> - Register a new user.")
+	fmt.Println("  reset               - Resets the database (use with caution!).")
+	fmt.Println("  users               - List all registered users.")
+	fmt.Println("  agg <time>          - Start aggregation of feeds (e.g., 'agg 1m', 'agg 5s').")
+	fmt.Println("  addfeed <name> <url>- Add a new RSS feed and automatically follow it.")
+	fmt.Println("  feeds               - List all available RSS feeds.")
+	fmt.Println("  follow <url>        - Follow an existing RSS feed by its URL.")
+	fmt.Println("  following           - List all feeds currently followed by the logged-in user.")
+	fmt.Println("  unfollow <url>      - Unfollow a previously followed RSS feed.")
+	fmt.Println("  browse [limit]      - Browse posts from your followed feeds (optional limit, default 2).")
+	fmt.Println("  help                - Display this help message.")
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("To run a command: go run . <command_name> [arguments]")
+	fmt.Println("Example: go run . register myuser")
+
+	return nil
 }

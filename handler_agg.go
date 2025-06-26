@@ -2,11 +2,47 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/zonne13/go-gator/internal/database"
+	"github.com/google/uuid"
+	"github.com/henryEto/go-gator/internal/database"
 )
+
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	limit := 2
+	if len(cmd.Args) == 1 {
+		if specifiedLimit, err := strconv.Atoi(cmd.Args[0]); err == nil {
+			limit = specifiedLimit
+		} else {
+			return fmt.Errorf("invalid limit: %w", err)
+		}
+	}
+
+	params := database.GetPostForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	}
+	posts, err := s.db.GetPostForUser(context.Background(), params)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range posts {
+		fmt.Println("============================================================")
+		fmt.Printf("%s - %v", p.Title, p.PublishedAt.Time)
+		fmt.Println("--------------------------------------------------------------------------------")
+		fmt.Println(p.Url)
+		fmt.Println(p.Description)
+		fmt.Println("")
+	}
+
+	return nil
+}
 
 func handlerAgg(s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
@@ -49,7 +85,25 @@ func scrapeFeeds(s *state) error {
 	}
 
 	for _, f := range rssFeed.Channel.Items {
-		fmt.Printf("fetched '%s' from '%s'\n", f.Title, rssFeed.Channel.Title)
+		pubTime, err := time.Parse("Mon, 02 Jan 2006 15:04:05 -0700", f.PubDate)
+		if err != nil {
+			pubTime = time.Now().UTC()
+		}
+		postParams := database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now().UTC(),
+			UpdatedAt:   time.Now().UTC(),
+			Title:       f.Title,
+			Url:         f.Link,
+			Description: sql.NullString{String: f.Description},
+			PublishedAt: sql.NullTime{Time: pubTime},
+			FeedID:      feedToFetch.ID,
+		}
+		err = s.db.CreatePost(context.Background(), postParams)
+		if err != nil && !strings.Contains(err.Error(), "duplicate ") {
+			log.Fatal(err)
+		}
+		// fmt.Printf("fetched '%s' from '%s'\n", f.Title, rssFeed.Channel.Title)
 	}
 
 	return nil

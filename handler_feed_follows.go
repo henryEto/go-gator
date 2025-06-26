@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/zonne13/go-gator/internal/database"
+	"github.com/henryEto/go-gator/internal/database"
 )
 
 func handlerUnfollow(s *state, cmd command, user database.User) error {
